@@ -1,0 +1,25 @@
+<html>
+  <body style="font-family: Arial, sans-serif;">
+    <p>Good morning,</p>
+    <p>Here is your weekly femtech news summary for <strong>{{ summary.date }}</strong>.</p>
+    {% for source in summary.sources %}
+      <h2>{{ source.site }}</h2>
+      {% for article in source.articles %}
+        <div style="margin-bottom: 20px;">
+          <strong>{{ article.title }}</strong><br>
+          <span>{{ article.summary }}</span><br>
+          {% if article.publication_date %}
+            <em>Published: {{ article.publication_date }}</em><br>
+          {% endif %}
+          <a href="{{ article.url }}">{{ article.url }}</a>
+        </div>
+      {% endfor %}
+    <hr>
+    {% endfor %}
+    {% if summary.companies %}
+    <h3>Companies Mentioned</h3>
+    <p>{{ summary.companies }}</p>
+    {% endif %}
+    <p>Have an amazing day,<br><em>FemTech News Bot</em></p>
+  </body>
+</html>
