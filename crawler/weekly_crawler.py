@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 from crawl4ai import AsyncWebCrawler
-from your_gemini_wrapper import gemini_extract_links, gemini_summarize, gemini_extract_companies
+from your_gemini_wrapper import gemini_extract_links, gemini_summarize_batched, gemini_extract_companies
 from email_sender import send_json_email
 
 LISTING_URLS = [
@@ -34,8 +34,8 @@ async def main():
                     all_article_markdowns.append(article_md)
 
     if all_article_markdowns:
-        print("📦 Sending all article markdowns to Gemini for summarization...")
-        summary = gemini_summarize(all_article_markdowns)
+        print("📦 Sending all article markdowns to Gemini for summarization (batched)...")
+        summary = gemini_summarize_batched(all_article_markdowns, batch_size=8)
 
         # Remove code block markers if present
         summary_clean = re.sub(r"^```json\s*|\s*```$", "", summary.strip(), flags=re.DOTALL)
