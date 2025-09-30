@@ -3,7 +3,7 @@ from google.generativeai import GenerativeModel
 from urllib.parse import urlparse
 import os
 from dotenv import load_dotenv
-from datetime import date
+from datetime import date, datetime
 import time
 import json
 
@@ -175,10 +175,63 @@ def gemini_summarize_batched(article_markdowns: list, batch_size: int = 8) -> st
                 site_to_articles[site] = []
             site_to_articles[site].extend(articles)
 
-    merged_sources = [
-        {"site": site, "articles": articles}
-        for site, articles in site_to_articles.items()
-    ]
+    # Helper: parse a variety of common date formats, prefer YYYY-MM-DD ordering
+    def _parse_pub_date(value: str):
+        if not value:
+            return None
+        v = value.strip()
+        # Try several common formats first
+        for fmt in (
+            "%Y-%m-%d",
+            "%d %B %Y",
+            "%B %d, %Y",
+            "%d %b %Y",
+            "%b %d, %Y",
+        ):
+            try:
+                return datetime.strptime(v, fmt)
+            except Exception:
+                pass
+        # Try extracting ISO-like substring if present
+        try:
+            # e.g. 2025-09-30T12:34:56Z -> 2025-09-30
+            iso_like = v[:10]
+            return datetime.strptime(iso_like, "%Y-%m-%d")
+        except Exception:
+            return None
+
+    # Deduplicate within each site (by URL then by normalized title), then sort by date desc
+    merged_sources = []
+    for site, articles in site_to_articles.items():
+        seen_urls = set()
+        seen_titles = set()
+        deduped: list[dict] = []
+        for art in articles:
+            url = (art.get("url") or "").strip().lower()
+            title_norm = (art.get("title") or "").strip().lower()
+            if url and url in seen_urls:
+                continue
+            if title_norm and title_norm in seen_titles:
+                continue
+            if url:
+                seen_urls.add(url)
+            if title_norm:
+                seen_titles.add(title_norm)
+            deduped.append(art)
+
+        # Attach parsed date for sorting
+        for a in deduped:
+            a["_parsed_dt"] = _parse_pub_date(a.get("publication_date"))
+
+        deduped.sort(key=lambda a: (a["_parsed_dt"] is None, a["_parsed_dt"]), reverse=False)
+        # The above sorts with None last (False < True is desired reversed). To ensure recent first:
+        deduped = list(reversed(deduped))
+
+        # Clean helper field
+        for a in deduped:
+            a.pop("_parsed_dt", None)
+
+        merged_sources.append({"site": site, "articles": deduped})
 
     final_payload = {
         "date": today,
